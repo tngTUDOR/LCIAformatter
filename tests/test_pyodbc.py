@@ -4,7 +4,7 @@ import pytest
 
 logger = logging.getLogger(__name__)
 @pytest.mark.skipif(sys.platform != 'win32')
-def find_pyodbc_driver():
+def test_find_pyodbc_driver():
     try:
         import pyodbc
     except ImportError:
