@@ -3,7 +3,7 @@ import sys
 import pytest
 
 logger = logging.getLogger(__name__)
-@pytest.mark.skipif(sys.platform != 'win32')
+@pytest.mark.skipif(sys.platform != 'win32', reason="PYDOBC only on windows")
 def test_find_pyodbc_driver():
     try:
         import pyodbc
