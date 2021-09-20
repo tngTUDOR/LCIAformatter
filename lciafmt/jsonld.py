@@ -5,6 +5,7 @@
 Functions to support generating JSONLD files for lciafmt
 """
 
+import logging
 from typing import Optional
 
 import olca
@@ -12,14 +13,14 @@ import olca.units as units
 import olca.pack as pack
 import pandas as pd
 
-from .util import make_uuid, is_non_empty_str, generate_method_description, log,\
+from .util import make_uuid, is_non_empty_str, generate_method_description,\
     pkg_version_number
 
-
+logger = logging.getLogger(__name__)
 class Writer(object):
 
     def __init__(self, zip_file: str):
-        log.debug("create JSON-LD writer on %s", zip_file)
+        logger.debug("create JSON-LD writer on %s", zip_file)
         self.__writer = pack.Writer(zip_file)
         self.__methods = {}
         self.__indicators = {}
@@ -44,7 +45,7 @@ class Writer(object):
             factor.value = row[12]
             indicator.impact_factors.append(factor)
 
-        log.debug("write entities")
+        logger.debug("write entities")
         dicts = [
             self.__indicators,
             self.__methods
@@ -64,7 +65,7 @@ class Writer(object):
         ind = self.__indicators.get(uid)
         if ind is not None:
             return ind
-        log.info("writing %s indicator ...", row[2])
+        logger.info("writing %s indicator ...", row[2])
         ind = olca.ImpactCategory()
         ind.id = uid
         ind.name = row[2]
@@ -88,7 +89,7 @@ class Writer(object):
         m = self.__methods.get(uid)
         if m is not None:
             return m
-        log.info("writing %s method ...", row[0])
+        logger.info("writing %s method ...", row[0])
         m = olca.ImpactMethod()
         m.id = uid
         m.name = row[0]
@@ -115,7 +116,7 @@ class Writer(object):
         # flow property
         prop_ref = units.property_ref(row[8])
         if prop_ref is None:
-            log.error("could not infer flow property for unit %s", row[8])
+            logger.error("could not infer flow property for unit %s", row[8])
         if prop_ref is not None:
             prop_fac = olca.FlowPropertyFactor()
             prop_fac.conversion_factor = 1.0
@@ -148,7 +149,7 @@ class Writer(object):
             c = self.__categories.get(cpath)
             if c is not None:
                 continue
-            log.debug("init category %s", cpath)
+            logger.debug("init category %s", cpath)
             c = olca.Category()
             c.id = make_uuid("category/flow/" + cpath)
             c.name = parts[i]

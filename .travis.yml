@@ -21,7 +21,7 @@ jobs:
       install:
         - pip3 install .
         - pip3 install -r requirements_test.txt  # install package & test deps
-      script: python3 -m pytest
+      script: python3 -m pytest -v
     # py395
     - name: "PYthon 3.9.5 on macOS 11.3 "
       os: osx
@@ -33,7 +33,7 @@ jobs:
       install:
         - pip3 install .
         - pip3 install -r requirements_test.txt  # install package % test deps
-      script: python3 -m pytest
+      script: python3 -m pytest -v
     #######
     # WIN #
     #######
@@ -69,4 +69,4 @@ before_install:
 install:
   - pip install .
   - pip install -r requirements_test.txt  # install package deps and test deps
-script: pytest
+script: pytest -v

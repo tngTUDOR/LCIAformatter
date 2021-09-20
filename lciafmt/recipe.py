@@ -13,7 +13,7 @@ import lciafmt.cache as cache
 import lciafmt.df as dfutil
 import lciafmt.xls as xls
 
-from .util import datapath, aggregate_factors_for_primary_contexts, log, format_cas
+from .util import datapath, aggregate_factors_for_primary_contexts, format_cas
 
 
 contexts = {
@@ -39,7 +39,7 @@ flowables_split = pd.read_csv(datapath+'ReCiPe2016_split.csv')
 def get(add_factors_for_missing_contexts=True, endpoint=True,
         summary=False, file=None, url=None) -> pd.DataFrame:
     """Downloads and processes the ReCiPe impact method. """
-    log.info("getting method ReCiPe 2016")
+    logger.info("getting method ReCiPe 2016")
     f = file
     if f is None:
         fname = "recipe_2016.xlsx"
@@ -49,12 +49,12 @@ def get(add_factors_for_missing_contexts=True, endpoint=True,
         f = cache.get_or_download(fname, url)
     df = _read(f)
     if add_factors_for_missing_contexts:
-        log.info("adding average factors for primary contexts")
+        logger.info("adding average factors for primary contexts")
         df = aggregate_factors_for_primary_contexts(df)
 
     if endpoint:
         endpoint_df, endpoint_df_by_flow = _read_endpoints(f)
-        log.info("converting midpoints to endpoints")
+        logger.info("converting midpoints to endpoints")
         #first assesses endpoint factors that are specific to flowables
         flowdf = df.merge(endpoint_df_by_flow, how="inner",on=["Method","Flowable"])
         flowdf.rename(columns={'Indicator_x':'Indicator','Indicator_y':'EndpointIndicator'},
@@ -72,7 +72,7 @@ def get(add_factors_for_missing_contexts=True, endpoint=True,
                 inplace=True)
         df = df.append(df2, ignore_index=True, sort = False)
 
-    log.info("handling manual replacements")
+    logger.info("handling manual replacements")
     """ due to substances listed more than once with the same name but different CAS
     this replaces all instances of the Original Flowable with a New Flowable
     based on a csv input file according to the CAS"""
@@ -84,10 +84,10 @@ def get(add_factors_for_missing_contexts=True, endpoint=True,
     length=len(df)
     df.drop_duplicates(keep='first',inplace=True)
     length=length-len(df)
-    log.info("%s duplicate entries removed", length)
+    logger.info("%s duplicate entries removed", length)
 
     if summary:
-        log.info("summarizing endpoint categories")
+        logger.info("summarizing endpoint categories")
         endpoint_categories = df.groupby(['Method','Method UUID',
                                           'Indicator unit','Flowable',
                                           'Flow UUID','Context','Unit',
@@ -102,10 +102,10 @@ def get(add_factors_for_missing_contexts=True, endpoint=True,
         #otherwise replaces endpoint LCIA
         append = False
         if append:
-            log.info("appending endpoint categories")
+            logger.info("appending endpoint categories")
             df = pd.concat([df,endpoint_categories], sort=False)
         else:
-            log.info("applying endpoint categories")
+            logger.info("applying endpoint categories")
             df = endpoint_categories
 
         #reorder columns in DF
@@ -116,7 +116,7 @@ def get(add_factors_for_missing_contexts=True, endpoint=True,
 
 
 def _read(file: str) -> pd.DataFrame:
-    log.info("read ReCiPe 2016 from file %s", file)
+    logger.info("read ReCiPe 2016 from file %s", file)
     wb = openpyxl.load_workbook(file, read_only = True, data_only = True)
     records = []
     for name in wb.sheetnames:
@@ -129,7 +129,7 @@ def _read(file: str) -> pd.DataFrame:
 
 
 def _read_endpoints(file: str) -> pd.DataFrame:
-    log.info("reading endpoint factors from file %s", file)
+    logger.info("reading endpoint factors from file %s", file)
     wb = openpyxl.load_workbook(file, read_only = True, data_only = True)
     endpoint_cols = ['Method','EndpointMethod', 'EndpointIndicator',
                      'EndpointUnit','EndpointConversion']
@@ -160,9 +160,9 @@ def _read_endpoints(file: str) -> pd.DataFrame:
             endpoint=endpoint.append(to_add, ignore_index=True)
             endpoints=[]
             endpoint_factor_count += 1
-    log.debug("extracted %i endpoint factors", endpoint_factor_count)
+    logger.debug("extracted %i endpoint factors", endpoint_factor_count)
 
-    log.info("processing endpoint factors")
+    logger.info("processing endpoint factors")
     endpoint.loc[endpoint['EndpointUnit'].str.contains('daly', case=False), 'EndpointUnit'] = 'DALY'
     endpoint.loc[endpoint['EndpointUnit'].str.contains('species', case=False), 'EndpointUnit'] = 'species-year'
     endpoint.loc[endpoint['EndpointUnit'].str.contains('USD', case=False), 'EndpointUnit'] = 'USD2013'
@@ -182,11 +182,11 @@ def _read_endpoints(file: str) -> pd.DataFrame:
 
 def _read_mid_points(sheet: openpyxl.worksheet.worksheet.Worksheet,
                      records: list):
-    log.debug("try to read midpoint factors from sheet %s", sheet.title)
+    logger.debug("try to read midpoint factors from sheet %s", sheet.title)
 
     start_row, data_col, with_perspectives = _find_data_start(sheet)
     if start_row < 0:
-        log.debug("could not find a value column in sheet %s", sheet.title)
+        logger.debug("could not find a value column in sheet %s", sheet.title)
         return
 
     flow_col = _find_flow_column(sheet)
@@ -242,7 +242,7 @@ def _read_mid_points(sheet: openpyxl.worksheet.worksheet.Worksheet,
                               cas_number=cas,
                               factor=val)
                 factor_count += 1
-    log.debug("extracted %i factors", factor_count)
+    logger.debug("extracted %i factors", factor_count)
 
 
 def _find_data_start(sheet: openpyxl.worksheet.worksheet.Worksheet) -> (int, int, bool):
@@ -268,10 +268,10 @@ def _find_flow_column(sheet: openpyxl.worksheet.worksheet.Worksheet) -> int:
             s = xls.cell_str(cell)
             if _containstr(s, "name") or _containstr(s, "substance"):
                 ncol = cell.column - 1
-                log.debug("identified column %i %s for flow names", ncol, s)
+                logger.debug("identified column %i %s for flow names", ncol, s)
                 break
     if ncol < 0:
-        log.debug("no 'name' column in %s, take col=0 for that", sheet.title)
+        logger.debug("no 'name' column in %s, take col=0 for that", sheet.title)
         ncol = 0
     return ncol
 
@@ -283,7 +283,7 @@ def _find_cas_column(sheet: openpyxl.worksheet.worksheet.Worksheet) -> int:
             s = xls.cell_str(cell)
             if _eqstr(s, "cas"):
                 ccol = cell.column - 1
-                log.debug("identified column %i %s for CAS numbers", ccol, s)
+                logger.debug("identified column %i %s for CAS numbers", ccol, s)
                 break
     return ccol
 
@@ -315,37 +315,37 @@ def _determine_units(sheet: openpyxl.worksheet.worksheet.Worksheet) -> (str, str
                 break
 
     if indicator_unit != "?":
-        log.debug("determined indicator unit: %s", indicator_unit)
+        logger.debug("determined indicator unit: %s", indicator_unit)
     elif _containstr(sheet.title, "land", "transformation"):
-        log.debug("unknown indicator unit; assuming it is m2")
+        logger.debug("unknown indicator unit; assuming it is m2")
         indicator_unit = "m2"
     elif _containstr(sheet.title, "land", "occupation"):
-        log.debug("unknown indicator unit; assuming it is m2*a")
+        logger.debug("unknown indicator unit; assuming it is m2*a")
         indicator_unit = "m2*a"
     elif _containstr(sheet.title, "water", "consumption"):
-        log.debug("unknown indicator unit; assuming it is m3")
+        logger.debug("unknown indicator unit; assuming it is m3")
         indicator_unit = "m3"
     else:
-        log.debug("unknown indicator unit")
+        logger.debug("unknown indicator unit")
 
     if _containstr(flow_unit, "kg"):
         flow_unit = "kg"
 
     if unit_col > -1:
-        log.debug("take units from column %i", unit_col)
+        logger.debug("take units from column %i", unit_col)
     elif flow_unit != "?":
-        log.debug("determined flow unit: %s", flow_unit)
+        logger.debug("determined flow unit: %s", flow_unit)
     elif _containstr(sheet.title, "land", "transformation"):
-        log.debug("unknown flow unit; assume it is m2")
+        logger.debug("unknown flow unit; assume it is m2")
         flow_unit = "m2"
     elif _containstr(sheet.title, "land", "occupation"):
-        log.debug("unknown flow unit; assuming it is m2*a")
+        logger.debug("unknown flow unit; assuming it is m2*a")
         flow_unit = "m2*a"
     elif _containstr(sheet.title, "water", "consumption"):
-        log.debug("unknown flow unit; assuming it is m3")
+        logger.debug("unknown flow unit; assuming it is m3")
         flow_unit = "m3"
     else:
-        log.debug("unknown flow unit; assuming it is 'kg'")
+        logger.debug("unknown flow unit; assuming it is 'kg'")
         flow_unit = "kg"
 
     return indicator_unit, flow_unit, unit_col
@@ -364,29 +364,29 @@ def _determine_compartments(sheet: openpyxl.worksheet.worksheet.Worksheet) -> (s
                 break
 
     if compartment_col > -1:
-        log.debug("found compartment column %i", compartment_col)
+        logger.debug("found compartment column %i", compartment_col)
         return "", compartment_col
 
     elif _containstr(sheet.title, "global", "warming") \
             or _containstr(sheet.title, "ozone") \
             or _containstr(sheet.title, "particulate") \
             or _containstr(sheet.title, "acidification"):
-        log.debug("no compartment column; assuming 'air'")
+        logger.debug("no compartment column; assuming 'air'")
         return "air", -1
 
     elif _containstr(sheet.title, "mineral", "resource", "scarcity"):
-        log.debug("no compartment column; assuming 'resource/ground'")
+        logger.debug("no compartment column; assuming 'resource/ground'")
         return "resource/ground", -1
 
     elif _containstr(sheet.title, "fossil", "resource", "scarcity"):
-        log.debug("no compartment column; assuming 'resource'")
+        logger.debug("no compartment column; assuming 'resource'")
         return "resource", -1
 
     if _containstr(sheet.title, "water", "consumption"):
-        log.debug("no compartment column; assuming 'resource/fresh water'")
+        logger.debug("no compartment column; assuming 'resource/fresh water'")
         return "resource/fresh water", -1
 
-    log.debug("no compartment column")
+    logger.debug("no compartment column")
     return "", -1
 
 

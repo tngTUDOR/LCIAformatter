@@ -56,7 +56,7 @@ class Method(Enum):
             if 'methods' in m: methods = m['methods']
             if n == name or c.value == name or mapping == name or name in methods.keys():
                 return c
-        util.log.error('Method not found')
+        util.logger.error('Method not found')
 
 def supported_methods() -> list:
     """Returns a list of dictionaries that contain meta-data of the supported
@@ -87,7 +87,7 @@ def clear_cache():
 
 def to_jsonld(df: pd.DataFrame, zip_file: str, write_flows=False):
     """Generates a JSONLD file of the methods passed as dataframe."""
-    util.log.info("write JSON-LD package to %s", zip_file)
+    util.logger.info("write JSON-LD package to %s", zip_file)
     with jsonld.Writer(zip_file) as w:
         w.write(df, write_flows)
 
@@ -114,7 +114,7 @@ def get_mapped_method(method_id, indicators=None, methods=None):
     method_id = util.check_as_class(method_id)
     mapped_method = util.read_method(method_id)
     if mapped_method is None:
-        util.log.info('generating ' + method_id.name)
+        util.logger.info('generating ' + method_id.name)
         method = get_method(method_id)
         if 'mapping' in method_id.get_metadata():
             mapping_system = method_id.get_metadata()['mapping']
@@ -129,11 +129,11 @@ def get_mapped_method(method_id, indicators=None, methods=None):
     if indicators is not None:
         mapped_method = mapped_method[mapped_method['Indicator'].isin(indicators)]
         if len(mapped_method) == 0:
-            util.log.error('indicator not found')
+            util.logger.error('indicator not found')
     if methods is not None:
         mapped_method = mapped_method[mapped_method['Method'].isin(methods)]
         if len(mapped_method) == 0:
-            util.log.error('specified method not found')
+            util.logger.error('specified method not found')
     return mapped_method
 
 def generate_endpoints(file, name = None, matching_fields = ['Indicator']):

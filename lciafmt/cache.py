@@ -5,21 +5,21 @@
 Functions to support storing and retrieving files from local cache
 """
 
+import logging
 import os
 import shutil
 import tempfile
 
 import requests
 
-from .util import log
-
+logger = logging.getLogger(__name__)
 
 def clear():
     """Delete the cached files."""
     d = get_folder()
     if not os.path.isdir(d):
         return
-    log.info("delete cache folder %s", d)
+    logger.info("delete cache folder %s", d)
     shutil.rmtree(d)
 
 
@@ -50,7 +50,7 @@ def download(url: str, file: str) -> str:
        and returns the full file path to the downloaded resource. """
     get_folder(create=True)
     path = get_path(file)
-    log.info("downloading from %s to %s", url, path)
+    logger.info("downloading from %s to %s", url, path)
     resp = requests.get(url, allow_redirects=True)
     with open(path, "wb") as f:
         f.write(resp.content)
@@ -61,7 +61,7 @@ def get_or_download(file: str, url: str) -> str:
     """Checks for local version of path or file or downloads if not present."""
     path = get_path(file)
     if os.path.isfile(path):
-        log.info("take %s from cache", file)
+        logger.info("take %s from cache", file)
         return path
     download(url, file)
     return path

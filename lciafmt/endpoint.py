@@ -5,12 +5,13 @@
 Functions to generate user specified endpoint functions from one or more
 LCIA methods
 """
+import logging
 
 import pandas as pd
 
 import lciafmt
-from .util import log
 
+logger = logging.getLogger(__name__)
 def apply_endpoints(endpoints, matching_fields = ['Indicator']):
     """
     Returns a dataframe in LCIAmethod format that contains endpoint factors
@@ -19,7 +20,7 @@ def apply_endpoints(endpoints, matching_fields = ['Indicator']):
     param matching_fields: list of fields on which to apply unique endpoint
         conversions
     """
-    log.info('developing endpoint methods...')
+    logger.info('developing endpoint methods...')
     indicators = endpoints[['Method'] + matching_fields]
     
     method = pd.DataFrame()
@@ -47,7 +48,7 @@ def apply_endpoints(endpoints, matching_fields = ['Indicator']):
                              inplace=True)
         endpoint_method.dropna(subset=['Characterization Factor'], inplace=True)
         if (len(endpoint_method.index) != len(mapped_method.index)):
-            log.warn("some characterization factors lost")
+            logger.warn("some characterization factors lost")
 
         #Determine fields to aggregate over. Use all fields except CF which are summed
         agg_fields = list(set(endpoint_method.columns) - {'Characterization Factor'})

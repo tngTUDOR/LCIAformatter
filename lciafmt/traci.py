@@ -14,7 +14,7 @@ import lciafmt.cache as cache
 import lciafmt.df as dfutil
 import lciafmt.xls as xls
 
-from .util import log, aggregate_factors_for_primary_contexts, format_cas, datapath
+from .util import aggregate_factors_for_primary_contexts, format_cas, datapath
 
 
 flowables_replace = pd.read_csv(datapath+'TRACI_2.1_replacement.csv')
@@ -23,7 +23,7 @@ flowables_split = pd.read_csv(datapath+'TRACI_2.1_split.csv')
 
 def get(add_factors_for_missing_contexts=True, file=None, url=None) -> pd.DataFrame:
     """  Downloads and processes the TRACI impact method. """
-    log.info("getting method Traci 2.1")
+    logger.info("getting method Traci 2.1")
     f = file
     if f is None:
         fname = "traci_2.1.xlsx"
@@ -33,10 +33,10 @@ def get(add_factors_for_missing_contexts=True, file=None, url=None) -> pd.DataFr
         f = cache.get_or_download(fname, url)
     df = _read(f)
     if add_factors_for_missing_contexts:
-        log.info("adding average factors for primary contexts")
+        logger.info("adding average factors for primary contexts")
         df = aggregate_factors_for_primary_contexts(df)
 
-    log.info("handling manual replacements")
+    logger.info("handling manual replacements")
     """ due to substances listed more than once with different names
     this replaces all instances of the Original Flowable with a New Flowable
     based on a csv input file, otherwise zero values for CFs will override
@@ -57,7 +57,7 @@ def get(add_factors_for_missing_contexts=True, file=None, url=None) -> pd.DataFr
     length=len(df)
     df.drop_duplicates(keep='first',inplace=True)
     length=length-len(df)
-    log.info("%s duplicate entries removed", length)
+    logger.info("%s duplicate entries removed", length)
 
     return df
 
@@ -66,7 +66,7 @@ def _read(xls_file: str) -> pd.DataFrame:
     """Read the data from the Excel file with the given path into a Pandas
        data frame."""
 
-    log.info("read Traci 2.1 from file %s", xls_file)
+    logger.info("read Traci 2.1 from file %s", xls_file)
     wb = openpyxl.load_workbook(xls_file, read_only = True, data_only = True)
     sheet = wb["Substances"]
     categories = {}

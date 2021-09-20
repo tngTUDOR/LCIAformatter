@@ -11,7 +11,7 @@ import pandas as pd
 import fedelemflowlist as flowlist
 
 import lciafmt.df as dfutil
-from .util import make_uuid, log
+from .util import make_uuid 
 
 
 def supported_mapping_systems() -> list:
@@ -111,9 +111,9 @@ class Mapper(object):
         self.__case_insensitive = case_insensitive
         if mapping is None:
             if system is None:
-                log.warning("pass dataframe as mapping or identify system")
+                logger.warning("pass dataframe as mapping or identify system")
             else:
-                log.info("loading flow mapping v=%s from fedelemflowlist", system)
+                logger.info("loading flow mapping v=%s from fedelemflowlist", system)
                 mapping = flowlist.get_flowmapping(source=system)
                 if self.__case_insensitive:
                     mapping['SourceFlowName'] = mapping['SourceFlowName'].str.lower()
@@ -122,10 +122,10 @@ class Mapper(object):
 
     def run(self) -> pd.DataFrame:
         if self.__mapping is None:
-            log.warning("No mapping applied")
+            logger.warning("No mapping applied")
             return self.__df
         map_idx = self._build_map_index()
-        log.info("applying flow mapping...")
+        logger.info("applying flow mapping...")
         mapped = 0
         preserved = 0
         df = self.__df
@@ -139,7 +139,7 @@ class Mapper(object):
             targets = map_idx.get(key)  # type: List[_FlowInfo]
 
             if targets is None:
-                log.debug("could not map flow %s", key)
+                logger.debug("could not map flow %s", key)
                 if self.__preserve_unmapped:
                     records.append(dfutil.as_list(df, row=row))
                     preserved += 1
@@ -155,13 +155,13 @@ class Mapper(object):
                 r[12] = r[12]/float(target.conversionfactor)
                 records.append(r)
                 mapped += 1
-        log.info("created %i factors for mapped flows; " +
+        logger.info("created %i factors for mapped flows; " +
                  "preserved %i factors for unmapped flows",
                  mapped, preserved)
         return dfutil.data_frame(records)
 
     def _build_map_index(self) -> dict:
-        log.debug("index flows")
+        logger.debug("index flows")
         map_idx = {}
         for _, row in self.__mapping.iterrows():
             sys = row["SourceListName"]
@@ -185,7 +185,7 @@ class Mapper(object):
                 conversionfactor=row["ConversionFactor"]
             ))
 
-        log.info("indexed %i mappings for %i flows",
+        logger.info("indexed %i mappings for %i flows",
                  self.__mapping.shape[0], len(map_idx))
         return map_idx
 

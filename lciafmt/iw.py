@@ -8,24 +8,24 @@ This module contains functions needed to compile LCIA methods from ImpactWorld+
 import pandas as pd
 import lciafmt.cache as cache
 import lciafmt.df as dfutil
-from lciafmt.util import log, format_cas
+from lciafmt.util import format_cas
 
 try:
     import pyodbc
 except ImportError:
-    log.error("Must install pyodbc for ImpactWorld. See install instructions for optional package"
+    logger.error("Must install pyodbc for ImpactWorld. See install instructions for optional package"
                    " installation or install it indepedently and retry.")
 
 def get(file=None, url=None) -> pd.DataFrame:
     """Download Access file and call read function to transfer into dataframe"""
-    log.info("get method ImpactWorld+")
+    logger.info("get method ImpactWorld+")
 
     # Check for drivers and display help message if absent
     driver_check = ([x for x in pyodbc.drivers()])
     if any('Microsoft Access Driver' in word for word in driver_check):
-        log.debug("Drivers Available")
+        logger.debug("Drivers Available")
     else:
-        log.warning(
+        logger.warning(
             "Please install drivers to remotely connect to Access Database. Drivers only available on windows platform."
             "For instructions visit: https://github.com/mkleehammer/pyodbc/wiki/Connecting-to-Microsoft-Access")
 
@@ -52,7 +52,7 @@ def _read(access_file: str) -> pd.DataFrame:
     """Read the data from the Access database with the given path into a
     Pandas data frame."""
 
-    log.info("read ImpactWorld+ from file %s", access_file)
+    logger.info("read ImpactWorld+ from file %s", access_file)
 
     path = cache.get_path(access_file)
 
