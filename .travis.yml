@@ -1,3 +1,4 @@
+---
 language: python
 os: linux
 dist: xenial
@@ -6,35 +7,37 @@ python:
   - 3.9
 jobs:
   include:
-    # MACOS
+    #########
+    # MACOS #
+    #########
     # py380
     - name: "PYthon 3.8.0 on macOS 10.14"
       os: osx
-      osx_image: xcode11.3 # python 3.8.0 running on macos 10.14.6
+      osx_image: xcode11.3  # python 3.8.0 running on macos 10.14.6
       language: shell
       before_install:
         - python3 --version
         - python3 -m pip install --upgrade pip
-        - python3 -m pip install --upgrade pytest pytest-cov
       install:
         - pip3 install .
-        - pip3 install -r requirements_test.txt  # install package deps and test deps
+        - pip3 install -r requirements_test.txt  # install package & test deps
       script: python3 -m pytest
-    # py3XSURPRISE
-    - name: "PYthon 3.X.0 on macOS ?"
+    # py395
+    - name: "PYthon 3.9.5 on macOS 11.3 "
       os: osx
-      osx_image: xcode12.5 # python 3.?.0 running on macos 10.14.6
+      osx_image: xcode12.5  # python 3.9.5 running on macos 11.3
       language: shell
       before_install:
         - python3 --version
         - python3 -m pip install --upgrade pip
-        - python3 -m pip install --upgrade pytest pytest-cov
       install:
         - pip3 install .
-        - pip3 install -r requirements_test.txt  # install package deps and test deps
+        - pip3 install -r requirements_test.txt  # install package % test deps
       script: python3 -m pytest
-    # WIN 
-    # win py38
+    #######
+    # WIN #
+    #######
+    # py388
     - name: "Python 3.8.8 on Windows"
       os: windows
       language: shell
@@ -42,17 +45,15 @@ jobs:
         - choco install python --version 3.8.8
         - python --version
         - python -m pip install --upgrade pip
-        - python -m pip install --upgrade pytest pytest-cov
       env: PATH=/c/Python38:/c/Python38/Scripts:$PATH
-    # win py39
+    # win py392
     - name: "Python 3.9.2 on Windows"
-      os: windows           # Windows 10.0.17134 N/A Build 17134
-      language: shell       # 'language: python' is an error on Travis CI Windows
+      os: windows  # Windows 10.0.17134 N/A Build 17134
+      language: shell  # 'language: python' is an error on Travis CI Windows
       before_install:
         - choco install python --version 3.9.2
         - python --version
         - python -m pip install --upgrade pip
-        - python -m pip install --upgrade codecov pytest
       env: PATH=/c/Python39:/c/Python39/Scripts:$PATH
 before_install:
   - python --version
