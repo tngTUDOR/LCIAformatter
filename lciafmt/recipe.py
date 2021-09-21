@@ -5,47 +5,57 @@
 This module contains functions needed to compile LCIA methods from the
 ReCiPe model
 """
+import logging
 
-import pandas as pd
 import openpyxl
+import pandas as pd
 
 import lciafmt.cache as cache
 import lciafmt.df as dfutil
 import lciafmt.xls as xls
 
-from .util import datapath, aggregate_factors_for_primary_contexts, format_cas
+from .util import aggregate_factors_for_primary_contexts, datapath, format_cas
 
+logger = logging.getLogger(__name__)
 
 contexts = {
-        'urban air' : 'air/urban',
-        'urban  air' : 'air/urban',
-        'Urban air' : 'air/urban',
-        'Rural air' : 'air/rural',
-        'rural air' : 'air/rural',
-        'agricultural soil' : 'soil/agricultural',
-        'Agricultural soil' : 'soil/agricultural',
-        'industrial soil' : 'soil/industrial',
-        'Industrial soil' : 'soil/industrial',
-        'freshwater' : 'water/freshwater',
-        'Freshwater' : 'water/freshwater',
-        'fresh water' : 'water/freshwater',
-        'seawater' : 'water/sea water',
-        'sea water' : 'water/sea water',
-        'Sea water' : 'water/sea water',
-        'marine water' : 'water/sea water'}
-flowables_split = pd.read_csv(datapath+'ReCiPe2016_split.csv')
+    "urban air": "air/urban",
+    "urban  air": "air/urban",
+    "Urban air": "air/urban",
+    "Rural air": "air/rural",
+    "rural air": "air/rural",
+    "agricultural soil": "soil/agricultural",
+    "Agricultural soil": "soil/agricultural",
+    "industrial soil": "soil/industrial",
+    "Industrial soil": "soil/industrial",
+    "freshwater": "water/freshwater",
+    "Freshwater": "water/freshwater",
+    "fresh water": "water/freshwater",
+    "seawater": "water/sea water",
+    "sea water": "water/sea water",
+    "Sea water": "water/sea water",
+    "marine water": "water/sea water",
+}
+flowables_split = pd.read_csv(datapath + "ReCiPe2016_split.csv")
 
 
-def get(add_factors_for_missing_contexts=True, endpoint=True,
-        summary=False, file=None, url=None) -> pd.DataFrame:
-    """Downloads and processes the ReCiPe impact method. """
+def get(
+    add_factors_for_missing_contexts=True,
+    endpoint=True,
+    summary=False,
+    file=None,
+    url=None,
+) -> pd.DataFrame:
+    """Downloads and processes the ReCiPe impact method."""
     logger.info("getting method ReCiPe 2016")
     f = file
     if f is None:
         fname = "recipe_2016.xlsx"
         if url is None:
-            url = ("http://www.rivm.nl/sites/default/files/2018-11/" +
-                   "ReCiPe2016_CFs_v1.1_20180117.xlsx")
+            url = (
+                "http://www.rivm.nl/sites/default/files/2018-11/"
+                + "ReCiPe2016_CFs_v1.1_20180117.xlsx"
+            )
         f = cache.get_or_download(fname, url)
     df = _read(f)
     if add_factors_for_missing_contexts:
@@ -55,73 +65,106 @@ def get(add_factors_for_missing_contexts=True, endpoint=True,
     if endpoint:
         endpoint_df, endpoint_df_by_flow = _read_endpoints(f)
         logger.info("converting midpoints to endpoints")
-        #first assesses endpoint factors that are specific to flowables
-        flowdf = df.merge(endpoint_df_by_flow, how="inner",on=["Method","Flowable"])
-        flowdf.rename(columns={'Indicator_x':'Indicator','Indicator_y':'EndpointIndicator'},
-                      inplace=True)
-        #next apply endpoint factors by indicator
-        df2 = df.merge(endpoint_df, how="inner",on=["Method","Indicator"])
+        # first assesses endpoint factors that are specific to flowables
+        flowdf = df.merge(endpoint_df_by_flow, how="inner", on=["Method", "Flowable"])
+        flowdf.rename(
+            columns={"Indicator_x": "Indicator", "Indicator_y": "EndpointIndicator"},
+            inplace=True,
+        )
+        # next apply endpoint factors by indicator
+        df2 = df.merge(endpoint_df, how="inner", on=["Method", "Indicator"])
         df2 = df2.append(flowdf, ignore_index=True, sort=False)
-        #reformat dataframe and apply conversion
-        df2['Characterization Factor']=df2['Characterization Factor']*df2['EndpointConversion']
-        df2['Method'] = df2['EndpointMethod']
-        df2['Indicator'] = df2['EndpointIndicator']
-        df2['Indicator unit'] = df2['EndpointUnit']
-        df2.drop(columns=['EndpointMethod','EndpointIndicator',
-                         'EndpointUnit','EndpointConversion'],
-                inplace=True)
-        df = df.append(df2, ignore_index=True, sort = False)
+        # reformat dataframe and apply conversion
+        df2["Characterization Factor"] = (
+            df2["Characterization Factor"] * df2["EndpointConversion"]
+        )
+        df2["Method"] = df2["EndpointMethod"]
+        df2["Indicator"] = df2["EndpointIndicator"]
+        df2["Indicator unit"] = df2["EndpointUnit"]
+        df2.drop(
+            columns=[
+                "EndpointMethod",
+                "EndpointIndicator",
+                "EndpointUnit",
+                "EndpointConversion",
+            ],
+            inplace=True,
+        )
+        df = df.append(df2, ignore_index=True, sort=False)
 
     logger.info("handling manual replacements")
     """ due to substances listed more than once with the same name but different CAS
     this replaces all instances of the Original Flowable with a New Flowable
     based on a csv input file according to the CAS"""
     for index, row in flowables_split.iterrows():
-        newCAS = format_cas(row['CAS'])
-        newFlow = row['New Flowable']
-        df.loc[df['CAS No'] == newCAS, 'Flowable'] = newFlow
+        newCAS = format_cas(row["CAS"])
+        newFlow = row["New Flowable"]
+        df.loc[df["CAS No"] == newCAS, "Flowable"] = newFlow
 
-    length=len(df)
-    df.drop_duplicates(keep='first',inplace=True)
-    length=length-len(df)
+    length = len(df)
+    df.drop_duplicates(keep="first", inplace=True)
+    length = length - len(df)
     logger.info("%s duplicate entries removed", length)
 
     if summary:
         logger.info("summarizing endpoint categories")
-        endpoint_categories = df.groupby(['Method','Method UUID',
-                                          'Indicator unit','Flowable',
-                                          'Flow UUID','Context','Unit',
-                                          'CAS No','Location',
-                                          'Location UUID','EndpointCategory'],
-                                         as_index=False)['Characterization Factor'].sum()
-        endpoint_categories['Indicator'] = endpoint_categories['EndpointCategory']
-        endpoint_categories['Indicator UUID'] = ""
-        endpoint_categories.drop(columns=['EndpointCategory'], inplace=True)
+        endpoint_categories = df.groupby(
+            [
+                "Method",
+                "Method UUID",
+                "Indicator unit",
+                "Flowable",
+                "Flow UUID",
+                "Context",
+                "Unit",
+                "CAS No",
+                "Location",
+                "Location UUID",
+                "EndpointCategory",
+            ],
+            as_index=False,
+        )["Characterization Factor"].sum()
+        endpoint_categories["Indicator"] = endpoint_categories["EndpointCategory"]
+        endpoint_categories["Indicator UUID"] = ""
+        endpoint_categories.drop(columns=["EndpointCategory"], inplace=True)
 
-        #To append endpoint categories to exisiting endpointLCIA, set append = True
-        #otherwise replaces endpoint LCIA
+        # To append endpoint categories to exisiting endpointLCIA, set append = True
+        # otherwise replaces endpoint LCIA
         append = False
         if append:
             logger.info("appending endpoint categories")
-            df = pd.concat([df,endpoint_categories], sort=False)
+            df = pd.concat([df, endpoint_categories], sort=False)
         else:
             logger.info("applying endpoint categories")
             df = endpoint_categories
 
-        #reorder columns in DF
-        df = df.reindex(columns=["Method","Method UUID","Indicator","Indicator UUID",
-            "Indicator unit","Flowable","Flow UUID","Context","Unit",
-            "CAS No","Location","Location UUID","Characterization Factor"])
+        # reorder columns in DF
+        df = df.reindex(
+            columns=[
+                "Method",
+                "Method UUID",
+                "Indicator",
+                "Indicator UUID",
+                "Indicator unit",
+                "Flowable",
+                "Flow UUID",
+                "Context",
+                "Unit",
+                "CAS No",
+                "Location",
+                "Location UUID",
+                "Characterization Factor",
+            ]
+        )
     return df
 
 
 def _read(file: str) -> pd.DataFrame:
     logger.info("read ReCiPe 2016 from file %s", file)
-    wb = openpyxl.load_workbook(file, read_only = True, data_only = True)
+    wb = openpyxl.load_workbook(file, read_only=True, data_only=True)
     records = []
     for name in wb.sheetnames:
-        if _eqstr(name, "Version") or _eqstr(
-                name, "Midpoint to endpoint factors"):
+        if _eqstr(name, "Version") or _eqstr(name, "Midpoint to endpoint factors"):
             continue
         _read_mid_points(wb[name], records)
 
@@ -130,23 +173,28 @@ def _read(file: str) -> pd.DataFrame:
 
 def _read_endpoints(file: str) -> pd.DataFrame:
     logger.info("reading endpoint factors from file %s", file)
-    wb = openpyxl.load_workbook(file, read_only = True, data_only = True)
-    endpoint_cols = ['Method','EndpointMethod', 'EndpointIndicator',
-                     'EndpointUnit','EndpointConversion']
-    endpoint = pd.DataFrame(columns = endpoint_cols)
+    wb = openpyxl.load_workbook(file, read_only=True, data_only=True)
+    endpoint_cols = [
+        "Method",
+        "EndpointMethod",
+        "EndpointIndicator",
+        "EndpointUnit",
+        "EndpointConversion",
+    ]
+    endpoint = pd.DataFrame(columns=endpoint_cols)
     endpoints = []
     perspectives = ["I", "H", "E"]
     indicator = ""
     indicator_unit = ""
-    sheet = wb['Midpoint to endpoint factors']
+    sheet = wb["Midpoint to endpoint factors"]
     start_row, data_col, with_perspectives = _find_data_start(sheet)
-    #impact categories in column 1
+    # impact categories in column 1
     flow_col = 0
 
     endpoint_factor_count = 0
-    for row in sheet.iter_rows(min_row = start_row):
+    for row in sheet.iter_rows(min_row=start_row):
         indicator = xls.cell_str(row[flow_col])
-        indicator_unit = xls.cell_str(row[flow_col+1])
+        indicator_unit = xls.cell_str(row[flow_col + 1])
         for i in range(0, 3):
             val = xls.cell_f64(row[data_col + i])
             if val == 0.0:
@@ -156,32 +204,37 @@ def _read_endpoints(file: str) -> pd.DataFrame:
             endpoints.append(indicator)
             endpoints.append(indicator_unit)
             endpoints.append(val)
-            to_add=pd.Series(endpoints, index=endpoint_cols)
-            endpoint=endpoint.append(to_add, ignore_index=True)
-            endpoints=[]
+            to_add = pd.Series(endpoints, index=endpoint_cols)
+            endpoint = endpoint.append(to_add, ignore_index=True)
+            endpoints = []
             endpoint_factor_count += 1
     logger.debug("extracted %i endpoint factors", endpoint_factor_count)
 
     logger.info("processing endpoint factors")
-    endpoint.loc[endpoint['EndpointUnit'].str.contains('daly', case=False), 'EndpointUnit'] = 'DALY'
-    endpoint.loc[endpoint['EndpointUnit'].str.contains('species', case=False), 'EndpointUnit'] = 'species-year'
-    endpoint.loc[endpoint['EndpointUnit'].str.contains('USD', case=False), 'EndpointUnit'] = 'USD2013'
+    endpoint.loc[
+        endpoint["EndpointUnit"].str.contains("daly", case=False), "EndpointUnit"
+    ] = "DALY"
+    endpoint.loc[
+        endpoint["EndpointUnit"].str.contains("species", case=False), "EndpointUnit"
+    ] = "species-year"
+    endpoint.loc[
+        endpoint["EndpointUnit"].str.contains("USD", case=False), "EndpointUnit"
+    ] = "USD2013"
 
-    endpoint_map = pd.read_csv(datapath+'ReCiPe2016_endpoint_to_midpoint.csv')
-    endpoint = endpoint.merge(endpoint_map,how="left",on='EndpointIndicator')
+    endpoint_map = pd.read_csv(datapath + "ReCiPe2016_endpoint_to_midpoint.csv")
+    endpoint = endpoint.merge(endpoint_map, how="left", on="EndpointIndicator")
 
-    #split into two dataframes
-    endpoint_by_flow = endpoint[endpoint['FlowFlag']==1]
-    endpoint_by_flow = endpoint_by_flow.drop(columns='FlowFlag')
-    endpoint_by_flow.rename(columns={'EndpointIndicator':'Flowable'}, inplace=True)
-    endpoint = endpoint[endpoint['FlowFlag'].isna()]
-    endpoint = endpoint.drop(columns='FlowFlag')
-    #return endpoint and endpoint by flow
+    # split into two dataframes
+    endpoint_by_flow = endpoint[endpoint["FlowFlag"] == 1]
+    endpoint_by_flow = endpoint_by_flow.drop(columns="FlowFlag")
+    endpoint_by_flow.rename(columns={"EndpointIndicator": "Flowable"}, inplace=True)
+    endpoint = endpoint[endpoint["FlowFlag"].isna()]
+    endpoint = endpoint.drop(columns="FlowFlag")
+    # return endpoint and endpoint by flow
     return endpoint, endpoint_by_flow
 
 
-def _read_mid_points(sheet: openpyxl.worksheet.worksheet.Worksheet,
-                     records: list):
+def _read_mid_points(sheet: openpyxl.worksheet.worksheet.Worksheet, records: list):
     logger.debug("try to read midpoint factors from sheet %s", sheet.title)
 
     start_row, data_col, with_perspectives = _find_data_start(sheet)
@@ -210,37 +263,41 @@ def _read_mid_points(sheet: openpyxl.worksheet.worksheet.Worksheet,
                 flow_unit = flow_unit.split("/")[1].strip()
         cas = ""
         if cas_col > -1:
-            cas=format_cas(xls.cell_f64(row[cas_col]))
+            cas = format_cas(xls.cell_f64(row[cas_col]))
 
         if with_perspectives:
             for i in range(0, 3):
                 val = xls.cell_f64(row[data_col + i])
                 if val == 0.0:
                     continue
-                dfutil.record(records,
-                              method="ReCiPe 2016 - Midpoint/" + perspectives[i],
-                              indicator=sheet.title,
-                              indicator_unit=indicator_unit,
-                              flow=xls.cell_str(row[flow_col]),
-                              flow_category=compartment,
-                              flow_unit=flow_unit,
-                              cas_number=cas,
-                              factor=val)
+                dfutil.record(
+                    records,
+                    method="ReCiPe 2016 - Midpoint/" + perspectives[i],
+                    indicator=sheet.title,
+                    indicator_unit=indicator_unit,
+                    flow=xls.cell_str(row[flow_col]),
+                    flow_category=compartment,
+                    flow_unit=flow_unit,
+                    cas_number=cas,
+                    factor=val,
+                )
                 factor_count += 1
         else:
             val = xls.cell_f64(row[data_col])
             if val == 0.0:
                 continue
             for p in perspectives:
-                dfutil.record(records,
-                              method="ReCiPe 2016 - Midpoint/" + p,
-                              indicator=sheet.title,
-                              indicator_unit=indicator_unit,
-                              flow=xls.cell_str(row[flow_col]),
-                              flow_category=compartment,
-                              flow_unit=flow_unit,
-                              cas_number=cas,
-                              factor=val)
+                dfutil.record(
+                    records,
+                    method="ReCiPe 2016 - Midpoint/" + p,
+                    indicator=sheet.title,
+                    indicator_unit=indicator_unit,
+                    flow=xls.cell_str(row[flow_col]),
+                    flow_category=compartment,
+                    flow_unit=flow_unit,
+                    cas_number=cas,
+                    factor=val,
+                )
                 factor_count += 1
     logger.debug("extracted %i factors", factor_count)
 
@@ -251,7 +308,11 @@ def _find_data_start(sheet: openpyxl.worksheet.worksheet.Worksheet) -> (int, int
             s = xls.cell_str(cell)
             if s is None or s == "":
                 continue
-            if _eqstr(s, "I") or _containstr(s, "Individualist") or _containstr(s, "Individualistic"):
+            if (
+                _eqstr(s, "I")
+                or _containstr(s, "Individualist")
+                or _containstr(s, "Individualistic")
+            ):
                 return cell.row + 1, cell.column - 1, True
             if _eqstr(s, "all perspectives"):
                 return cell.row + 1, cell.column - 1, False
@@ -296,7 +357,7 @@ def _determine_units(sheet: openpyxl.worksheet.worksheet.Worksheet) -> (str, str
     row -= 2
 
     if row > 0:
-        s = xls.cell_str(sheet.cell(row=row, column = col + 1))
+        s = xls.cell_str(sheet.cell(row=row, column=col + 1))
         if s is not None and s != "":
             if "/" in s:
                 parts = s.strip(" ()").split("/")
@@ -351,15 +412,16 @@ def _determine_units(sheet: openpyxl.worksheet.worksheet.Worksheet) -> (str, str
     return indicator_unit, flow_unit, unit_col
 
 
-def _determine_compartments(sheet: openpyxl.worksheet.worksheet.Worksheet) -> (str, int):
+def _determine_compartments(
+    sheet: openpyxl.worksheet.worksheet.Worksheet,
+) -> (str, int):
     compartment_col = -1
     for count, row in enumerate(sheet.iter_rows()):
         if count > 5:
             break
         for cell in row:
             s = xls.cell_str(cell)
-            if _containstr(s, "compartment") \
-                or _containstr(s, "name", "in", "ReCiPe"):
+            if _containstr(s, "compartment") or _containstr(s, "name", "in", "ReCiPe"):
                 compartment_col = cell.column - 1
                 break
 
@@ -367,10 +429,12 @@ def _determine_compartments(sheet: openpyxl.worksheet.worksheet.Worksheet) -> (s
         logger.debug("found compartment column %i", compartment_col)
         return "", compartment_col
 
-    elif _containstr(sheet.title, "global", "warming") \
-            or _containstr(sheet.title, "ozone") \
-            or _containstr(sheet.title, "particulate") \
-            or _containstr(sheet.title, "acidification"):
+    elif (
+        _containstr(sheet.title, "global", "warming")
+        or _containstr(sheet.title, "ozone")
+        or _containstr(sheet.title, "particulate")
+        or _containstr(sheet.title, "acidification")
+    ):
         logger.debug("no compartment column; assuming 'air'")
         return "air", -1
 

@@ -23,4 +23,3 @@ def cell_f64(cell: openpyxl.worksheet.worksheet.Worksheet.cell) -> float:
         return float(v)
     except ValueError:
         return 0.0
-

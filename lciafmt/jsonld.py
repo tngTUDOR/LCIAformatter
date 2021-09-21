@@ -9,16 +9,21 @@ import logging
 from typing import Optional
 
 import olca
-import olca.units as units
 import olca.pack as pack
+import olca.units as units
 import pandas as pd
 
-from .util import make_uuid, is_non_empty_str, generate_method_description,\
-    pkg_version_number
+from .util import (
+    generate_method_description,
+    is_non_empty_str,
+    make_uuid,
+    pkg_version_number,
+)
 
 logger = logging.getLogger(__name__)
-class Writer(object):
 
+
+class Writer(object):
     def __init__(self, zip_file: str):
         logger.debug("create JSON-LD writer on %s", zip_file)
         self.__writer = pack.Writer(zip_file)
@@ -46,10 +51,7 @@ class Writer(object):
             indicator.impact_factors.append(factor)
 
         logger.debug("write entities")
-        dicts = [
-            self.__indicators,
-            self.__methods
-        ]
+        dicts = [self.__indicators, self.__methods]
         if write_flows:
             dicts.append(self.__categories)
             dicts.append(self.__flows)
@@ -95,7 +97,7 @@ class Writer(object):
         m.name = row[0]
         m.version = pkg_version_number
         m.impact_categories = []
-        m.description= description
+        m.description = description
         self.__methods[uid] = m
         return m
 
@@ -145,7 +147,7 @@ class Writer(object):
         for i in range(0, len(parts)):
             if c is not None:
                 p = c
-            cpath = "/".join(parts[0:(i + 1)])
+            cpath = "/".join(parts[0 : (i + 1)])
             c = self.__categories.get(cpath)
             if c is not None:
                 continue

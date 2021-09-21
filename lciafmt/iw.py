@@ -5,29 +5,37 @@
 This module contains functions needed to compile LCIA methods from ImpactWorld+
 """
 
+import logging
+
 import pandas as pd
+
 import lciafmt.cache as cache
 import lciafmt.df as dfutil
 from lciafmt.util import format_cas
 
+logger = logging.getLogger(__name__)
 try:
     import pyodbc
 except ImportError:
-    logger.error("Must install pyodbc for ImpactWorld. See install instructions for optional package"
-                   " installation or install it indepedently and retry.")
+    logger.error(
+        "Must install pyodbc for ImpactWorld. See install instructions for optional package"
+        " installation or install it indepedently and retry."
+    )
+
 
 def get(file=None, url=None) -> pd.DataFrame:
     """Download Access file and call read function to transfer into dataframe"""
     logger.info("get method ImpactWorld+")
 
     # Check for drivers and display help message if absent
-    driver_check = ([x for x in pyodbc.drivers()])
-    if any('Microsoft Access Driver' in word for word in driver_check):
+    driver_check = [x for x in pyodbc.drivers()]
+    if any("Microsoft Access Driver" in word for word in driver_check):
         logger.debug("Drivers Available")
     else:
         logger.warning(
             "Please install drivers to remotely connect to Access Database. Drivers only available on windows platform."
-            "For instructions visit: https://github.com/mkleehammer/pyodbc/wiki/Connecting-to-Microsoft-Access")
+            "For instructions visit: https://github.com/mkleehammer/pyodbc/wiki/Connecting-to-Microsoft-Access"
+        )
 
     f = file
     if f is None:
@@ -38,15 +46,20 @@ def get(file=None, url=None) -> pd.DataFrame:
     df = _read(f)
 
     # Identify midpoint and endpoint records and differentiate in data frame.
-    end_point_units = ['DALY', 'PDF.m2.yr']
+    end_point_units = ["DALY", "PDF.m2.yr"]
 
-    df.loc[df["Indicator unit"].isin(end_point_units), ["Method"]] = "ImpactWorld+ - Endpoint"
-    df.loc[~df["Indicator unit"].isin(end_point_units), ["Method"]] = "ImpactWorld+ - Midpoint"
+    df.loc[
+        df["Indicator unit"].isin(end_point_units), ["Method"]
+    ] = "ImpactWorld+ - Endpoint"
+    df.loc[
+        ~df["Indicator unit"].isin(end_point_units), ["Method"]
+    ] = "ImpactWorld+ - Midpoint"
 
     # call function to replace contexts for unspecified water and air flows.
     df = update_context(df)
-    
+
     return df
+
 
 def _read(access_file: str) -> pd.DataFrame:
     """Read the data from the Access database with the given path into a
@@ -56,9 +69,7 @@ def _read(access_file: str) -> pd.DataFrame:
 
     path = cache.get_path(access_file)
 
-    connStr = (
-        r'DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};'
-        r'DBQ=' + path + ";")
+    connStr = r"DRIVER={Microsoft Access Driver (*.mdb, *.accdb)};" r"DBQ=" + path + ";"
 
     cnxn = pyodbc.connect(connStr)
     crsr = cnxn.cursor()
@@ -68,15 +79,17 @@ def _read(access_file: str) -> pd.DataFrame:
     crsr.execute("SELECT * FROM [CF - not regionalized - All other impact categories]")
     rows = crsr.fetchall()
     for row in rows:
-        dfutil.record(records,
-                      method="ImpactWorld+",
-                      indicator = row[1],
-                      indicator_unit=row[2],
-                      flow=row[5],
-                      flow_category=row[3] + "/" + row[4],
-                      flow_unit=row[8],
-                      cas_number=format_cas(row[6]).lstrip("0"),
-                      factor=row[7])
+        dfutil.record(
+            records,
+            method="ImpactWorld+",
+            indicator=row[1],
+            indicator_unit=row[2],
+            flow=row[5],
+            flow_category=row[3] + "/" + row[4],
+            flow_unit=row[8],
+            cas_number=format_cas(row[6]).lstrip("0"),
+            factor=row[7],
+        )
 
     """List relevant sheets in Impact World Access file. Second item in tuple
     tells the source of compartment information. Compartment for water
@@ -84,38 +97,53 @@ def _read(access_file: str) -> pd.DataFrame:
     names are used to define the compartment for land transformation and
     occupation. Compartment and Subcompartment data is available in the Access
     file for other categories."""
-    regional_sheets = [("CF - regionalized - WaterScarc - aggregated", "Raw/in water"),
-                       ("CF - regionalized - WaterAvailab_HH - aggregated", "Raw/in water"),
-                       ("CF - regionalized - LandTrans - aggregated", "Elementary Flow"),
-                       ("CF - regionalized - LandOcc - aggregated", "Elementary Flow"),
-                       ("CF - regionalized - EutroMar - aggregated", "Compartment"),
-                       ("CF - regionalized - PartMatterForm - aggregated","Compartment"),
-                       ("CF - regionalized - AcidFW - aggregated", "Compartment"),
-                       ("CF - regionalized - AcidTerr - aggregated", "Compartment"),
-                       ("CF - regionalized - EutroFW - aggregated", "Compartment"),
-                       ]
+    regional_sheets = [
+        ("CF - regionalized - WaterScarc - aggregated", "Raw/in water"),
+        ("CF - regionalized - WaterAvailab_HH - aggregated", "Raw/in water"),
+        ("CF - regionalized - LandTrans - aggregated", "Elementary Flow"),
+        ("CF - regionalized - LandOcc - aggregated", "Elementary Flow"),
+        ("CF - regionalized - EutroMar - aggregated", "Compartment"),
+        ("CF - regionalized - PartMatterForm - aggregated", "Compartment"),
+        ("CF - regionalized - AcidFW - aggregated", "Compartment"),
+        ("CF - regionalized - AcidTerr - aggregated", "Compartment"),
+        ("CF - regionalized - EutroFW - aggregated", "Compartment"),
+    ]
 
     for x in regional_sheets:
         if x[0] == "CF - regionalized - PartMatterForm - aggregated":
             # Extract global flows from the particulate matter Access sheet
             # Structure of this sheet is
-            sql = "SELECT * FROM [" + x[0] + "] WHERE (([" + x[0] + "].Region In('World')))"
+            sql = (
+                "SELECT * FROM ["
+                + x[0]
+                + "] WHERE ((["
+                + x[0]
+                + "].Region In('World')))"
+            )
             crsr.execute(sql)
             rows = crsr.fetchall()
 
             for row in rows:
-                dfutil.record(records,
-                              method="ImpactWorld+",
-                              indicator=row.ImpCat,
-                              indicator_unit=row.Unit.strip('[]').split('/')[0],
-                              flow=row.__getattribute__('Elem flow'),
-                              flow_category="Air/" + row.__getattribute__("Archetype 1"),
-                              flow_unit=row.Unit.strip('[]').split('/')[1],
-                              cas_number="",
-                              factor=row.CFvalue)
+                dfutil.record(
+                    records,
+                    method="ImpactWorld+",
+                    indicator=row.ImpCat,
+                    indicator_unit=row.Unit.strip("[]").split("/")[0],
+                    flow=row.__getattribute__("Elem flow"),
+                    flow_category="Air/" + row.__getattribute__("Archetype 1"),
+                    flow_unit=row.Unit.strip("[]").split("/")[1],
+                    cas_number="",
+                    factor=row.CFvalue,
+                )
 
         else:
-            sql = "SELECT * FROM [" + x[0] + "] WHERE (([" + x[0] + "].Resolution In('Global', 'Not regionalized')))"
+            sql = (
+                "SELECT * FROM ["
+                + x[0]
+                + "] WHERE ((["
+                + x[0]
+                + "].Resolution In('Global', 'Not regionalized')))"
+            )
             crsr.execute(sql)
             rows = crsr.fetchall()
 
@@ -123,61 +151,70 @@ def _read(access_file: str) -> pd.DataFrame:
             cols = [column[0] for column in crsr.description]
 
             for row in rows:
-                #Add water to detailed context information available in Access file
-                if x[0] in ['CF - regionalized - WaterScarc - aggregated',
-                            'CF - regionalized - WaterAvailab_HH - aggregated']:
-                    flow_stmt = 'Water, ' + row.__getattribute__('Elem flow')
+                # Add water to detailed context information available in Access file
+                if x[0] in [
+                    "CF - regionalized - WaterScarc - aggregated",
+                    "CF - regionalized - WaterAvailab_HH - aggregated",
+                ]:
+                    flow_stmt = "Water, " + row.__getattribute__("Elem flow")
                 else:
-                    flow_stmt = row.__getattribute__('Elem flow')
+                    flow_stmt = row.__getattribute__("Elem flow")
 
                 # Define context/compartment for flow based on impact category.
-                if {'Compartment', 'Subcompartment'}.issubset(cols):
+                if {"Compartment", "Subcompartment"}.issubset(cols):
                     category_stmt = row.Compartment + "/" + row.Subcompartment
-                elif x[0] in ['CF - regionalized - LandTrans - aggregated',
-                              'CF - regionalized - LandOcc - aggregated',
-                              'CF - regionalized - WaterScarc - aggregated',
-                              'CF - regionalized - WaterAvailab_HH - aggregated']:
+                elif x[0] in [
+                    "CF - regionalized - LandTrans - aggregated",
+                    "CF - regionalized - LandOcc - aggregated",
+                    "CF - regionalized - WaterScarc - aggregated",
+                    "CF - regionalized - WaterAvailab_HH - aggregated",
+                ]:
                     category_stmt = flow_stmt
                 else:
                     category_stmt = x[1]
 
-                dfutil.record(records,
-                              method="ImpactWorld+",
-                              indicator = row.ImpCat,
-                              indicator_unit=row.Unit.strip('[]').split('/')[0],
-                              flow=flow_stmt,
-                              flow_category=category_stmt,
-                              flow_unit=row.Unit.strip('[]').split('/')[1],
-                              cas_number="",
-                              factor=row.__getattribute__('Weighted Average'))
+                dfutil.record(
+                    records,
+                    method="ImpactWorld+",
+                    indicator=row.ImpCat,
+                    indicator_unit=row.Unit.strip("[]").split("/")[0],
+                    flow=flow_stmt,
+                    flow_category=category_stmt,
+                    flow_unit=row.Unit.strip("[]").split("/")[1],
+                    cas_number="",
+                    factor=row.__getattribute__("Weighted Average"),
+                )
 
     return dfutil.data_frame(records)
 
 
 def update_context(df_context) -> pd.DataFrame:
-    """replaces unspecified air and water flows for impact categories that 
+    """replaces unspecified air and water flows for impact categories that
     don't rely on sub-compartments for  characterization factor selection."""
-    single_context = ['Freshwater acidification',
-                      'Terrestrial acidification',
-                      'Climate change, long term',
-                      'Climate change, short term',
-                      'Climate change, ecosystem quality, short term',
-                      'Climate change, ecosystem quality, long term',
-                      'Climate change, human health, short term',
-                      'Climate change, human health, long term',
-                      'Photochemical oxidant formation',
-                      'Ozone Layer Depletion',
-                      'Ozone layer depletion',
-                      'Marine acidification, short term',
-                      'Marine acidification, long term',
-                      'Ionizing radiations',
-                      ]
+    single_context = [
+        "Freshwater acidification",
+        "Terrestrial acidification",
+        "Climate change, long term",
+        "Climate change, short term",
+        "Climate change, ecosystem quality, short term",
+        "Climate change, ecosystem quality, long term",
+        "Climate change, human health, short term",
+        "Climate change, human health, long term",
+        "Photochemical oxidant formation",
+        "Ozone Layer Depletion",
+        "Ozone layer depletion",
+        "Marine acidification, short term",
+        "Marine acidification, long term",
+        "Ionizing radiations",
+    ]
 
-    context = { 'Air/(unspecified)' : 'Air',
-               # 'Water/(unspecified)' : 'Water',
-                }
+    context = {
+        "Air/(unspecified)": "Air",
+        # 'Water/(unspecified)' : 'Water',
+    }
 
-    df_context.loc[df_context['Indicator'].isin(single_context),
-                   'Context'] = df_context['Context'].map(context).fillna(df_context['Context'])
+    df_context.loc[df_context["Indicator"].isin(single_context), "Context"] = (
+        df_context["Context"].map(context).fillna(df_context["Context"])
+    )
 
     return df_context

@@ -5,13 +5,17 @@
 Functions to support flow mapping for lcia methods
 """
 
+import logging
 from typing import List
 
-import pandas as pd
 import fedelemflowlist as flowlist
+import pandas as pd
 
 import lciafmt.df as dfutil
-from .util import make_uuid 
+
+from .util import make_uuid
+
+logger = logging.getLogger(__name__)
 
 
 def supported_mapping_systems() -> list:
@@ -64,7 +68,7 @@ def norm_category(category_path: str) -> str:
                 continue
             # if term(i) ends with term(i - 1)
             if term.endswith(norm[-1]):
-                term = term[0:-(len(norm[-1]))].strip(" -")
+                term = term[0 : -(len(norm[-1]))].strip(" -")
 
         # append qualifiers
         if qualifiers is not None:
@@ -90,7 +94,6 @@ def _is_strv(val) -> bool:
 
 
 class _FlowInfo(object):
-
     def __init__(self, uuid="", name="", category="", unit="", conversionfactor="1.0"):
         self.name = name
         self.category = category
@@ -103,9 +106,14 @@ class _FlowInfo(object):
 
 
 class Mapper(object):
-
-    def __init__(self, df: pd.DataFrame, system=None,
-                 mapping=None, preserve_unmapped=False, case_insensitive=False):
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        system=None,
+        mapping=None,
+        preserve_unmapped=False,
+        case_insensitive=False,
+    ):
         self.__df = df
         self.__system = system
         self.__case_insensitive = case_insensitive
@@ -116,7 +124,7 @@ class Mapper(object):
                 logger.info("loading flow mapping v=%s from fedelemflowlist", system)
                 mapping = flowlist.get_flowmapping(source=system)
                 if self.__case_insensitive:
-                    mapping['SourceFlowName'] = mapping['SourceFlowName'].str.lower()
+                    mapping["SourceFlowName"] = mapping["SourceFlowName"].str.lower()
         self.__mapping = mapping  # type: pd.DataFrame
         self.__preserve_unmapped = preserve_unmapped
 
@@ -152,12 +160,15 @@ class Mapper(object):
                 r[6] = target.uuid
                 r[7] = target.category
                 r[8] = target.unit
-                r[12] = r[12]/float(target.conversionfactor)
+                r[12] = r[12] / float(target.conversionfactor)
                 records.append(r)
                 mapped += 1
-        logger.info("created %i factors for mapped flows; " +
-                 "preserved %i factors for unmapped flows",
-                 mapped, preserved)
+        logger.info(
+            "created %i factors for mapped flows; "
+            + "preserved %i factors for unmapped flows",
+            mapped,
+            preserved,
+        )
         return dfutil.data_frame(records)
 
     def _build_map_index(self) -> dict:
@@ -177,16 +188,19 @@ class Mapper(object):
             if targets is None:
                 targets = []
                 map_idx[key] = targets
-            targets.append(_FlowInfo(
-                uuid=row["TargetFlowUUID"],
-                name=row["TargetFlowName"],
-                category=row["TargetFlowContext"],
-                unit=row["TargetUnit"],
-                conversionfactor=row["ConversionFactor"]
-            ))
+            targets.append(
+                _FlowInfo(
+                    uuid=row["TargetFlowUUID"],
+                    name=row["TargetFlowName"],
+                    category=row["TargetFlowContext"],
+                    unit=row["TargetUnit"],
+                    conversionfactor=row["ConversionFactor"],
+                )
+            )
 
-        logger.info("indexed %i mappings for %i flows",
-                 self.__mapping.shape[0], len(map_idx))
+        logger.info(
+            "indexed %i mappings for %i flows", self.__mapping.shape[0], len(map_idx)
+        )
         return map_idx
 
     @staticmethod
