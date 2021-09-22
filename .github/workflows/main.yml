@@ -33,5 +33,5 @@ jobs:
           pip install .
           pip install -r docs/requirements.txt
           sphinx-build -b text -d docs/_build/doctrees docs docs/_build/text
-          cat docs/_build/doctrees docs docs/_build/text
+          cat docs/_build/text/api/lciafmt.txt
 
