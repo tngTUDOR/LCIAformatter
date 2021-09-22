@@ -5,6 +5,7 @@
 Public API for lciafmt
 """
 
+import logging
 import json
 from enum import Enum
 
@@ -20,6 +21,7 @@ import lciafmt.recipe as recipe
 import lciafmt.traci as traci
 import lciafmt.util as util
 
+logger = logging.getLogger("lciafmt")
 
 class Method(Enum):
     TRACI = "TRACI 2.1"
@@ -62,7 +64,7 @@ class Method(Enum):
                 or name in methods.keys()
             ):
                 return c
-        util.logger.error("Method not found")
+        logger.error("Method not found")
 
 
 def supported_methods() -> list:
@@ -106,7 +108,7 @@ def clear_cache():
 
 def to_jsonld(df: pd.DataFrame, zip_file: str, write_flows=False):
     """Generates a JSONLD file of the methods passed as dataframe."""
-    util.logger.info("write JSON-LD package to %s", zip_file)
+    logger.info("write JSON-LD package to %s", zip_file)
     with jsonld.Writer(zip_file) as w:
         w.write(df, write_flows)
 
@@ -144,7 +146,7 @@ def get_mapped_method(method_id, indicators=None, methods=None):
     method_id = util.check_as_class(method_id)
     mapped_method = util.read_method(method_id)
     if mapped_method is None:
-        util.logger.info("generating " + method_id.name)
+        logger.info("generating: %s", method_id.name)
         method = get_method(method_id)
         if "mapping" in method_id.get_metadata():
             mapping_system = method_id.get_metadata()["mapping"]
@@ -161,11 +163,11 @@ def get_mapped_method(method_id, indicators=None, methods=None):
     if indicators is not None:
         mapped_method = mapped_method[mapped_method["Indicator"].isin(indicators)]
         if len(mapped_method) == 0:
-            util.logger.error("indicator not found")
+            logger.error("indicator not found")
     if methods is not None:
         mapped_method = mapped_method[mapped_method["Method"].isin(methods)]
         if len(mapped_method) == 0:
-            util.logger.error("specified method not found")
+            logger.error("specified method not found")
     return mapped_method
 
 
