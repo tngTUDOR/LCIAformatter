@@ -12,12 +12,12 @@ import lciafmt
 from .util import log
 
 def apply_endpoints(endpoints, matching_fields = ['Indicator']):
-    """
-    Returns a dataframe in LCIAmethod format that contains endpoint factors
-        based on conversion factors supplied in passed param 'endpoints'
+    """Returns a dataframe in LCIAmethod format that contains endpoint factors
+        based on conversion factors supplied in passed param 'endpoints'.
+
     param endpoints must conform to Endpoints specs
-    param matching_fields: list of fields on which to apply unique endpoint
-        conversions
+    param matching_fields: list of fields on which to apply unique endpoint conversions
+
     """
     log.info('developing endpoint methods...')
     indicators = endpoints[['Method'] + matching_fields]
